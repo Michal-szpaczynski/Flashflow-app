@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FlashFlow – Spaced Repetition Flashcards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* CSS CUSTOM PROPERTIES */
+:root {
+  --bg:        #0d0f14;
+  --surface:   #161921;
+  --surface2:  #1e2230;
+  --border:    #2a2f3d;
+  --text:      #e8eaf2;
+  --text-muted:#8891aa;
+  --accent:    #6c63ff;
+  --accent2:   #ff6b6b;
+  --accent3:   #43e97b;
+  --card-front:#1e2230;
+  --card-back: #1a1d2e;
+  --shadow:    0 8px 32px rgba(0,0,0,0.45);
+  --radius:    14px;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --transition:0.25s ease;
+}
+[data-theme="light"] {
+  --bg:        #f0f2f8;
+  --surface:   #ffffff;
+  --surface2:  #e8eaf2;
+  --border:    #d0d4e8;
+  --text:      #1a1d2e;
+  --text-muted:#6b7080;
+  --card-front:#ffffff;
+  --card-back: #f4f5ff;
+  --shadow:    0 8px 32px rgba(108,99,255,0.10);
+}
+
+/* RESET */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-head);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: background var(--transition), color var(--transition);
+}
+button { cursor: pointer; font-family: inherit; border: none; outline: none; }
+input, textarea {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 100%;
+  transition: border-color var(--transition);
+}
+input:focus, textarea:focus { border-color: var(--accent); outline: none; }
+textarea { resize: vertical; min-height: 80px; }
+
+/* LAYOUT */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* TOPBAR */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(12px);
+}
+.logo {
+  font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.topbar-right { display: flex; gap: 10px; align-items: center; }
+.icon-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; color: var(--text);
+  font-size: 1rem; transition: all var(--transition);
+  display: flex; align-items: center; gap: 6px;
+}
+.icon-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.nav-btn {
+  background: transparent; border: none; color: var(--text-muted);
+  font-family: var(--font-head); font-size: 0.9rem; font-weight: 600;
+  padding: 8px 14px; border-radius: 8px; transition: all var(--transition);
+}
+.nav-btn:hover, .nav-btn.active { color: var(--accent); background: rgba(108,99,255,0.1); }
+
+/*  MAIN CONTENT */
+main { flex: 1; padding: 32px 28px; max-width: 900px; margin: 0 auto; width: 100%; }
+
+/* PAGE VISIBILITY */
+.page { display: none; }
+.page.active { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* HEADINGS */
+.page-title { font-size: 1.8rem; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
+.page-sub   { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 28px; font-family: var(--font-mono); }
+
+/* GRID */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+
+/* DECK CARD */
+.deck-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative; overflow: hidden;
+}
+.deck-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), #a78bfa);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform var(--transition);
+}
+.deck-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-2px); }
+.deck-card:hover::before { transform: scaleX(1); }
+.deck-name { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
+.deck-meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.deck-meta span { display: flex; align-items: center; gap: 4px; }
+.deck-actions { display: flex; gap: 8px; margin-top: 14px; }
+.btn-sm {
+  font-size: 0.78rem; font-weight: 600; padding: 6px 12px;
+  border-radius: 6px; transition: all var(--transition);
+  font-family: var(--font-head);
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #5a52e0; }
+.btn-danger  { background: transparent; border: 1px solid var(--accent2); color: var(--accent2); }
+.btn-danger:hover  { background: var(--accent2); color: #fff; }
+.btn-ghost   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover   { border-color: var(--accent); color: var(--accent); }
+
+/* ADD DECK CARD */
+.add-deck-card {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; cursor: pointer; color: var(--text-muted);
+  font-weight: 600; font-size: 0.95rem;
+  transition: all var(--transition);
+  min-height: 110px;
+}
+.add-deck-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.05); }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; opacity: 0; pointer-events: none;
+  transition: opacity var(--transition);
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px; padding: 32px; width: 100%; max-width: 480px;
+  box-shadow: var(--shadow); transform: scale(0.95);
+  transition: transform var(--transition);
+}
+.modal-overlay.open .modal { transform: scale(1); }
+.modal h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 24px; justify-content: flex-end; }
+.btn-lg {
+  font-size: 0.9rem; font-weight: 700; padding: 10px 22px;
+  border-radius: 10px; transition: all var(--transition);
+}
+
+/* DECK DETAIL */
+.breadcrumb { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 24px; font-family: var(--font-mono); }
+.breadcrumb span { cursor: pointer; }
+.breadcrumb span:hover { color: var(--accent); }
+.breadcrumb-sep { color: var(--border); }
+
+.card-list { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.card-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 18px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  transition: border-color var(--transition);
+}
+.card-item:hover { border-color: var(--border); }
+.card-item-content { flex: 1; }
+.card-q { font-weight: 600; font-size: 0.92rem; margin-bottom: 4px; }
+.card-a { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-muted); }
+.card-sr-badge {
+  font-family: var(--font-mono); font-size: 0.7rem; padding: 3px 8px;
+  border-radius: 20px; white-space: nowrap; align-self: center;
+}
+.badge-new  { background: rgba(108,99,255,0.15); color: var(--accent); border: 1px solid rgba(108,99,255,0.3); }
+.badge-due  { background: rgba(255,107,107,0.15); color: var(--accent2); border: 1px solid rgba(255,107,107,0.3); }
+.badge-ok   { background: rgba(67,233,123,0.12); color: var(--accent3); border: 1px solid rgba(67,233,123,0.25); }
+
+.deck-controls {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;
+}
+
+/* QUIZ MODE */
+.quiz-wrapper {
+  max-width: 600px; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 28px;
+}
+.quiz-progress { width: 100%; }
+.progress-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+.progress-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #a78bfa); border-radius: 99px; transition: width 0.4s ease; }
+
+/* FLASHCARD FLIP */
+.flashcard-scene { width: 100%; perspective: 1200px; }
+.flashcard {
+  width: 100%; min-height: 260px;
+  position: relative; transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.flashcard.flipped { transform: rotateY(180deg); }
+.card-face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  border-radius: 20px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 36px 40px; text-align: center;
+  border: 1.5px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.card-face.front {
+  background: var(--card-front);
+}
+.card-face.back {
+  background: var(--card-back);
+  transform: rotateY(180deg);
+}
+.card-label {
+  font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 16px;
+}
+.card-text { font-size: 1.3rem; font-weight: 700; line-height: 1.45; letter-spacing: -0.3px; }
+.flip-hint { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 20px; opacity: 0.6; }
+
+.rating-row {
+  display: flex; gap: 12px; width: 100%; justify-content: center; flex-wrap: wrap;
+}
+.rating-btn {
+  flex: 1; min-width: 100px; padding: 12px; border-radius: 12px;
+  font-family: var(--font-head); font-size: 0.88rem; font-weight: 700;
+  transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.rating-btn small { font-size: 0.7rem; font-weight: 400; opacity: 0.7; }
+.rating-again  { background: rgba(255,107,107,0.15); border: 1.5px solid var(--accent2); color: var(--accent2); }
+.rating-again:hover  { background: var(--accent2); color: #fff; transform: translateY(-2px); }
+.rating-hard   { background: rgba(255,165,0,0.12); border: 1.5px solid #f59e0b; color: #f59e0b; }
+.rating-hard:hover   { background: #f59e0b; color: #fff; transform: translateY(-2px); }
+.rating-good   { background: rgba(108,99,255,0.15); border: 1.5px solid var(--accent); color: var(--accent); }
+.rating-good:hover   { background: var(--accent); color: #fff; transform: translateY(-2px); }
+.rating-easy   { background: rgba(67,233,123,0.12); border: 1.5px solid var(--accent3); color: var(--accent3); }
+.rating-easy:hover   { background: var(--accent3); color: #fff; transform: translateY(-2px); }
+
+.quiz-done {
+  text-align: center; padding: 48px 24px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; max-width: 480px; margin: 0 auto;
+}
+.quiz-done .big-icon { font-size: 3rem; margin-bottom: 16px; }
+.quiz-done h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 10px; }
+.quiz-done p  { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.88rem; margin-bottom: 24px; line-height: 1.6; }
+
+/* STATS PAGE */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  text-align: center;
+}
+.stat-value { font-size: 2rem; font-weight: 800; letter-spacing: -1px; }
+.stat-label { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-accent  { color: var(--accent); }
+.stat-accent2 { color: var(--accent2); }
+.stat-accent3 { color: var(--accent3); }
+.stat-yellow  { color: #f59e0b; }
+
+.history-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.82rem; }
+.history-table th { text-align: left; padding: 10px 14px; color: var(--text-muted); text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+.history-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.history-table tr:last-child td { border-bottom: none; }
+.history-table tr:hover td { background: var(--surface2); }
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  color: var(--text-muted); font-family: var(--font-mono);
+}
+.empty-state .es-icon { font-size: 2.8rem; margin-bottom: 14px; }
+.empty-state p { line-height: 1.7; font-size: 0.9rem; }
+
+/* TOAST */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 18px;
+  font-size: 0.85rem; font-weight: 600; box-shadow: var(--shadow);
+  animation: toastIn 0.3s ease;
+  display: flex; align-items: center; gap: 8px;
+}
+@keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+/* UTILITY */
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.flex-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.spacer { flex: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <span class="logo">⚡ FlashFlow</span>
+    <div class="topbar-right">
+      <button class="nav-btn active" data-nav="home" onclick="navigate('home')">Decks</button>
+      <button class="nav-btn" data-nav="stats" onclick="navigate('stats')">Stats</button>
+      <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
+      <button class="icon-btn" onclick="exportAll()" title="Export all decks">⬇ Export</button>
+      <button class="icon-btn" onclick="triggerImport()" title="Import decks">⬆ Import</button>
+      <input type="file" id="importInput" accept=".json" style="display:none" onchange="importAll(event)" />
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- HOME PAGE -->
+    <div class="page active" id="page-home">
+      <h1 class="page-title">Your Decks</h1>
+      <p class="page-sub" id="home-sub">Loading…</p>
+      <div class="grid" id="deck-grid"></div>
+    </div>
+
+    <!-- DECK DETAIL PAGE -->
+    <div class="page" id="page-deck">
+      <div class="breadcrumb">
+        <span onclick="navigate('home')">Home</span>
+        <span class="breadcrumb-sep">/</span>
+        <span id="bc-deck-name">Deck</span>
+      </div>
+      <div class="flex-row">
+        <div>
+          <h1 class="page-title" id="detail-title">Deck Name</h1>
+          <p class="page-sub" id="detail-sub">0 cards</p>
+        </div>
+        <div class="spacer"></div>
+        <div class="deck-controls">
+          <button class="btn-sm btn-primary" onclick="startQuiz()">▶ Study Now</button>
+          <button class="btn-sm btn-ghost" onclick="openAddCardModal()">+ Add Card</button>
+          <button class="btn-sm btn-ghost" onclick="shuffleAndStudyAll()">🔀 Study All</button>
+          <button class="btn-sm btn-danger" onclick="resetDeckProgress()">↺ Reset SR</button>
+        </div>
+      </div>
+      <div class="card-list" id="card-list"></div>
+    </div>
+
+    <!-- QUIZ PAGE -->
+    <div class="page" id="page-quiz">
+      <div class="breadcrumb">
+        <span onclick="navigate('home')">Home</span>
+        <span class="breadcrumb-sep">/</span>
+        <span id="bc-quiz-deck" onclick="navigate('deck')">Deck</span>
+        <span class="breadcrumb-sep">/</span>
+        <span>Study</span>
+      </div>
+      <div class="quiz-wrapper" id="quiz-wrapper"></div>
+    </div>
+
+    <!-- STATS PAGE -->
+    <div class="page" id="page-stats">
+      <h1 class="page-title">Statistics</h1>
+      <p class="page-sub">Track your learning progress</p>
+      <div class="stats-grid" id="stats-grid"></div>
+      <h2 style="font-size:1rem;font-weight:700;margin-bottom:14px;">Review History</h2>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Date &amp; Time</th>
+              <th>Deck</th>
+              <th>Cards Reviewed</th>
+              <th>Accuracy</th>
+              <th>Avg Rating</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODALS -->
+
+<!-- New Deck Modal -->
+<div class="modal-overlay" id="modal-deck">
+  <div class="modal">
+    <h2>✨ Create New Deck</h2>
+    <div class="form-group">
+      <label>Deck Name</label>
+      <input type="text" id="input-deck-name" placeholder="e.g. JavaScript Fundamentals" maxlength="60" />
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <input type="text" id="input-deck-desc" placeholder="What's this deck about?" maxlength="120" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-lg btn-ghost" onclick="closeModal('modal-deck')">Cancel</button>
+      <button class="btn-lg btn-primary" onclick="createDeck()">Create Deck</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Card Modal -->
+<div class="modal-overlay" id="modal-card">
+  <div class="modal">
+    <h2>🃏 Add Flashcard</h2>
+    <div class="form-group">
+      <label>Question / Front</label>
+      <textarea id="input-card-q" placeholder="Enter the question or concept…"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Answer / Back</label>
+      <textarea id="input-card-a" placeholder="Enter the answer or explanation…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-lg btn-ghost" onclick="closeModal('modal-card')">Cancel</button>
+      <button class="btn-lg btn-ghost" onclick="addCardAndAnother()">Save &amp; Add Another</button>
+      <button class="btn-lg btn-primary" onclick="addCard()">Save Card</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+
+
+// STATE 
+let state = {
+  decks: [],          // { id, name, desc, cards: [], createdAt }
+  reviewHistory: [],  // { date, deckId, deckName, reviewed, correct, totalRating }
+  theme: 'dark'
+};
+
+let activeDeckId  = null;
+let quizQueue     = [];
+let quizIdx       = 0;
+let quizFlipped   = false;
+let quizSession   = { reviewed: 0, correct: 0, totalRating: 0 };
+let quizStudyAll  = false;
+
+// PERSISTENCE 
+function save()  { localStorage.setItem('flashflow_state', JSON.stringify(state)); }
+function load()  {
+  const raw = localStorage.getItem('flashflow_state');
+  if (raw) {
+    try { state = JSON.parse(raw); } catch(e) { /* corrupted */ }
+  }
+  // migrate old data
+  if (!state.reviewHistory) state.reviewHistory = [];
+  if (!state.theme) state.theme = 'dark';
+}
+
+// THEME 
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  applyTheme();
+  save();
+}
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', state.theme);
+  document.getElementById('themeBtn').textContent = state.theme === 'dark' ? '🌙' : '☀️';
+}
+
+// NAVIGATION 
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const nb = document.querySelector('[data-nav="' + page + '"]');
+  if (nb) nb.classList.add('active');
+
+  if (page === 'home')  renderHome();
+  if (page === 'deck')  renderDeckDetail();
+  if (page === 'stats') renderStats();
+}
+
+// HOME 
+function renderHome() {
+  const grid = document.getElementById('deck-grid');
+  const sub  = document.getElementById('home-sub');
+  const totalDue = state.decks.reduce((acc, d) => acc + getDueCount(d), 0);
+  sub.textContent = `${state.decks.length} deck${state.decks.length !== 1 ? 's' : ''} · ${totalDue} card${totalDue !== 1 ? 's' : ''} due today`;
+
+  grid.innerHTML = '';
+  state.decks.forEach(deck => {
+    const due   = getDueCount(deck);
+    const total = deck.cards.length;
+    const card  = document.createElement('div');
+    card.className = 'deck-card';
+    card.innerHTML = `
+      <div class="deck-name">${escHtml(deck.name)}</div>
+      ${deck.desc ? `<div class="deck-meta" style="margin-bottom:8px;font-size:0.8rem;color:var(--text-muted)">${escHtml(deck.desc)}</div>` : ''}
+      <div class="deck-meta">
+        <span>🃏 ${total} card${total !== 1 ? 's' : ''}</span>
+        <span style="color:${due > 0 ? 'var(--accent2)' : 'var(--accent3)'}">
+          ${due > 0 ? '⏰ ' + due + ' due' : '✓ Up to date'}
+        </span>
+      </div>
+      <div class="deck-actions">
+        <button class="btn-sm btn-primary" onclick="openDeck('${deck.id}');event.stopPropagation()">Open</button>
+        <button class="btn-sm btn-ghost"   onclick="startQuizById('${deck.id}');event.stopPropagation()">Study</button>
+        <button class="btn-sm btn-danger"  onclick="deleteDeck('${deck.id}');event.stopPropagation()">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  // add-deck card
+  const add = document.createElement('div');
+  add.className = 'add-deck-card';
+  add.onclick = () => openModal('modal-deck');
+  add.innerHTML = `<span style="font-size:1.4rem">＋</span> New Deck`;
+  grid.appendChild(add);
+}
+
+// DECK CRUD 
+function createDeck() {
+  const name = document.getElementById('input-deck-name').value.trim();
+  if (!name) { toast('❗ Please enter a deck name', 'warn'); return; }
+  const desc = document.getElementById('input-deck-desc').value.trim();
+  const deck  = { id: uid(), name, desc, cards: [], createdAt: new Date().toISOString() };
+  state.decks.push(deck);
+  save();
+  closeModal('modal-deck');
+  document.getElementById('input-deck-name').value = '';
+  document.getElementById('input-deck-desc').value = '';
+  toast('🎉 Deck created!');
+  renderHome();
+}
+
+function deleteDeck(id) {
+  if (!confirm('Delete this deck and all its cards?')) return;
+  state.decks = state.decks.filter(d => d.id !== id);
+  save();
+  renderHome();
+  toast('🗑 Deck deleted');
+}
+
+function openDeck(id) {
+  activeDeckId = id;
+  navigate('deck');
+}
+
+// DECK DETAIL 
+function renderDeckDetail() {
+  const deck = getDeck();
+  if (!deck) { navigate('home'); return; }
+  document.getElementById('bc-deck-name').textContent = deck.name;
+  document.getElementById('detail-title').textContent  = deck.name;
+  const due = getDueCount(deck);
+  document.getElementById('detail-sub').textContent = `${deck.cards.length} card${deck.cards.length !== 1 ? 's' : ''} · ${due} due today`;
+
+  const list = document.getElementById('card-list');
+  list.innerHTML = '';
+  if (deck.cards.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="es-icon">🃏</div><p>No cards yet.<br/>Click "Add Card" to get started.</p></div>`;
+    return;
+  }
+  deck.cards.forEach((c, i) => {
+    const status = cardStatus(c);
+    const item = document.createElement('div');
+    item.className = 'card-item';
+    item.innerHTML = `
+      <div class="card-item-content">
+        <div class="card-q">${escHtml(c.question)}</div>
+        <div class="card-a">${escHtml(c.answer)}</div>
+      </div>
+      <span class="card-sr-badge badge-${status.cls}">${status.label}</span>
+      <button class="btn-sm btn-danger" onclick="deleteCard(${i})" style="align-self:center">✕</button>`;
+    list.appendChild(item);
+  });
+}
+
+function cardStatus(c) {
+  if (!c.lastReview)        return { cls: 'new',  label: 'New' };
+  if (isCardDue(c))         return { cls: 'due',  label: 'Due' };
+  return { cls: 'ok', label: 'In ' + c.interval + 'd' };
+}
+
+// CARD CRUD 
+function openAddCardModal() { openModal('modal-card'); }
+
+function addCard(closeAfter = true) {
+  const q = document.getElementById('input-card-q').value.trim();
+  const a = document.getElementById('input-card-a').value.trim();
+  if (!q || !a) { toast('❗ Both question and answer are required', 'warn'); return false; }
+  const card = { id: uid(), question: q, answer: a, interval: 0, easeFactor: 2.5, dueDate: null, lastReview: null, reviews: 0, lapses: 0 };
+  getDeck().cards.push(card);
+  save();
+  if (closeAfter) {
+    closeModal('modal-card');
+    document.getElementById('input-card-q').value = '';
+    document.getElementById('input-card-a').value = '';
+    renderDeckDetail();
+    toast('✅ Card added!');
+  }
+  return true;
+}
+
+function addCardAndAnother() {
+  if (addCard(false)) {
+    document.getElementById('input-card-q').value = '';
+    document.getElementById('input-card-a').value = '';
+    document.getElementById('input-card-q').focus();
+    toast('✅ Card saved — add another!');
+    renderDeckDetail();
+  }
+}
+
+function deleteCard(idx) {
+  if (!confirm('Delete this card?')) return;
+  getDeck().cards.splice(idx, 1);
+  save();
+  renderDeckDetail();
+  toast('🗑 Card deleted');
+}
+
+// SR ALGORITHM 
+
+function applyRating(card, rating) {
+  const prevInterval = card.interval || 0;
+  const ef = card.easeFactor || 2.5;
+
+  let newInterval, newEF;
+
+  switch(rating) {
+    case 0: // Again - forgot completely
+      newInterval = 0;
+      newEF = Math.max(1.3, ef - 0.20);
+      card.lapses++;
+      break;
+    case 1: // Hard - recalled with difficulty
+      newInterval = Math.max(1, prevInterval);
+      newEF = Math.max(1.3, ef - 0.10);
+      break;
+    case 2: // Good - recalled correctly
+      if (prevInterval === 0) {
+        newInterval = 1;
+      } else {
+        newInterval = Math.round(prevInterval * ef);
+      }
+      newEF = ef; // no change for good
+      break;
+    case 3: // Easy - recalled instantly
+      if (prevInterval === 0) {
+        newInterval = 4;
+      } else {
+        newInterval = Math.round(prevInterval * ef * 1.3);
+      }
+      newEF = Math.min(3.5, ef + 0.15);
+      break;
+  }
+
+  card.interval    = newInterval;
+  card.easeFactor  = parseFloat(newEF.toFixed(2));
+  card.reviews++;
+  card.lastReview  = new Date().toISOString();
+  const due = new Date();
+  due.setDate(due.getDate() + newInterval);
+  card.dueDate = due.toISOString();
+}
+
+function isCardDue(card) {
+  if (!card.dueDate || card.interval === 0) return true;
+  return new Date(card.dueDate) <= new Date();
+}
+
+function getDueCount(deck) {
+  return deck.cards.filter(isCardDue).length;
+}
+
+// QUIZ 
+function startQuiz() {
+  quizStudyAll = false;
+  const deck = getDeck();
+  quizQueue = deck.cards.filter(isCardDue);
+  if (quizQueue.length === 0) {
+    toast('🎉 No cards due! All up to date.');
+    return;
+  }
+  quizQueue = shuffle(quizQueue.slice());
+  startQuizSession();
+}
+
+function startQuizById(id) {
+  activeDeckId = id;
+  startQuiz();
+}
+
+function shuffleAndStudyAll() {
+  quizStudyAll = true;
+  const deck = getDeck();
+  if (deck.cards.length === 0) { toast('❗ No cards in this deck'); return; }
+  quizQueue = shuffle(deck.cards.slice());
+  startQuizSession();
+}
+
+function startQuizSession() {
+  quizIdx = 0;
+  quizFlipped = false;
+  quizSession = { reviewed: 0, correct: 0, totalRating: 0 };
+  document.getElementById('bc-quiz-deck').textContent = getDeck().name;
+  navigate('quiz');
+  renderQuizCard();
+}
+
+function renderQuizCard() {
+  const wrapper = document.getElementById('quiz-wrapper');
+  if (quizIdx >= quizQueue.length) {
+    renderQuizDone();
+    return;
+  }
+  const card  = quizQueue[quizIdx];
+  const total = quizQueue.length;
+  const pct   = Math.round((quizIdx / total) * 100);
+
+  wrapper.innerHTML = `
+    <div class="quiz-progress">
+      <div class="progress-label">
+        <span>Card ${quizIdx + 1} / ${total}</span>
+        <span>${pct}% complete</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>
+
+    <div class="flashcard-scene">
+      <div class="flashcard" id="quiz-card" onclick="flipCard()">
+        <div class="card-face front">
+          <div class="card-label">Question</div>
+          <div class="card-text">${escHtml(card.question)}</div>
+          <div class="flip-hint">Click to reveal answer</div>
+        </div>
+        <div class="card-face back">
+          <div class="card-label">Answer</div>
+          <div class="card-text">${escHtml(card.answer)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rating-row" id="rating-row" style="display:none">
+      <button class="rating-btn rating-again" onclick="rate(0)">Again<small>Forgot</small></button>
+      <button class="rating-btn rating-hard"  onclick="rate(1)">Hard<small>Tricky</small></button>
+      <button class="rating-btn rating-good"  onclick="rate(2)">Good<small>Got it</small></button>
+      <button class="rating-btn rating-easy"  onclick="rate(3)">Easy<small>Instant</small></button>
+    </div>`;
+  quizFlipped = false;
+}
+
+function flipCard() {
+  if (quizFlipped) return;
+  quizFlipped = true;
+  document.getElementById('quiz-card').classList.add('flipped');
+  document.getElementById('rating-row').style.display = 'flex';
+}
+
+function rate(rating) {
+  const card = quizQueue[quizIdx];
+  // find the real card in the deck and update it
+  const deckCard = getDeck().cards.find(c => c.id === card.id);
+  if (deckCard) applyRating(deckCard, rating);
+  save();
+
+  quizSession.reviewed++;
+  if (rating >= 2) quizSession.correct++;
+  quizSession.totalRating += rating;
+  quizIdx++;
+  renderQuizCard();
+}
+
+function renderQuizDone() {
+  const wrapper = document.getElementById('quiz-wrapper');
+  const acc = quizSession.reviewed > 0
+    ? Math.round((quizSession.correct / quizSession.reviewed) * 100)
+    : 0;
+  const avgRating = quizSession.reviewed > 0
+    ? (quizSession.totalRating / quizSession.reviewed).toFixed(1)
+    : '–';
+
+  wrapper.innerHTML = `
+    <div class="quiz-done">
+      <div class="big-icon">${acc >= 80 ? '🏆' : acc >= 50 ? '👍' : '💪'}</div>
+      <h2>Session Complete!</h2>
+      <p>
+        Reviewed: <strong>${quizSession.reviewed}</strong> card${quizSession.reviewed !== 1 ? 's' : ''}<br/>
+        Accuracy: <strong style="color:var(--accent3)">${acc}%</strong><br/>
+        Average rating: <strong>${avgRating} / 3</strong>
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn-lg btn-primary" onclick="navigate('deck')">Back to Deck</button>
+        <button class="btn-lg btn-ghost"   onclick="navigate('home')">Home</button>
+      </div>
+    </div>`;
+
+  // record history
+  state.reviewHistory.unshift({
+    date:      new Date().toISOString(),
+    deckId:    activeDeckId,
+    deckName:  getDeck()?.name || 'Unknown',
+    reviewed:  quizSession.reviewed,
+    correct:   quizSession.correct,
+    totalRating: quizSession.totalRating
+  });
+  if (state.reviewHistory.length > 200) state.reviewHistory = state.reviewHistory.slice(0, 200);
+  save();
+}
+
+// STATS 
+function renderStats() {
+  const totalCards   = state.decks.reduce((a, d) => a + d.cards.length, 0);
+  const totalDecks   = state.decks.length;
+  const totalDue     = state.decks.reduce((a, d) => a + getDueCount(d), 0);
+  const totalReviews = state.reviewHistory.reduce((a, h) => a + h.reviewed, 0);
+  const sessions     = state.reviewHistory.length;
+
+  const overallAcc = state.reviewHistory.length > 0
+    ? Math.round(
+        state.reviewHistory.reduce((a, h) => a + (h.reviewed > 0 ? h.correct / h.reviewed : 0), 0)
+        / state.reviewHistory.length * 100
+      )
+    : 0;
+
+  // streak calculation
+  let streak = 0;
+  const sessionDays = [...new Set(state.reviewHistory.map(h => h.date.slice(0, 10)))].sort().reverse();
+  const today = new Date().toISOString().slice(0, 10);
+  let checkDay = today;
+  for (const day of sessionDays) {
+    if (day === checkDay) {
+      streak++;
+      const d = new Date(checkDay);
+      d.setDate(d.getDate() - 1);
+      checkDay = d.toISOString().slice(0, 10);
+    } else break;
+  }
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-value stat-accent">${totalDecks}</div><div class="stat-label">Decks</div></div>
+    <div class="stat-card"><div class="stat-value">${totalCards}</div><div class="stat-label">Total Cards</div></div>
+    <div class="stat-card"><div class="stat-value stat-accent2">${totalDue}</div><div class="stat-label">Cards Due</div></div>
+    <div class="stat-card"><div class="stat-value stat-accent3">${totalReviews}</div><div class="stat-label">Reviews Done</div></div>
+    <div class="stat-card"><div class="stat-value stat-yellow">${streak}</div><div class="stat-label">Day Streak 🔥</div></div>
+    <div class="stat-card"><div class="stat-value stat-accent">${overallAcc}%</div><div class="stat-label">Overall Accuracy</div></div>
+    <div class="stat-card"><div class="stat-value">${sessions}</div><div class="stat-label">Study Sessions</div></div>`;
+
+  const tbody = document.getElementById('history-tbody');
+  if (state.reviewHistory.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);font-family:var(--font-mono)">No sessions yet — start studying!</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.reviewHistory.slice(0, 50).map(h => {
+    const acc = h.reviewed > 0 ? Math.round(h.correct / h.reviewed * 100) : 0;
+    const avgR = h.reviewed > 0 ? (h.totalRating / h.reviewed).toFixed(1) : '–';
+    const dt = new Date(h.date);
+    const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `<tr>
+      <td>${dateStr}</td>
+      <td>${escHtml(h.deckName)}</td>
+      <td>${h.reviewed}</td>
+      <td style="color:${acc >= 70 ? 'var(--accent3)' : acc >= 40 ? 'var(--accent)' : 'var(--accent2)'}">${acc}%</td>
+      <td>${avgR}</td>
+    </tr>`;
+  }).join('');
+}
+
+// IMPORT / EXPORT 
+function exportAll() {
+  const blob = new Blob([JSON.stringify({ decks: state.decks }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'flashflow-decks.json';
+  a.click();
+  toast('✅ Decks exported!');
+}
+
+function triggerImport() { document.getElementById('importInput').click(); }
+
+function importAll(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.decks || !Array.isArray(data.decks)) throw new Error('Invalid format');
+      let imported = 0;
+      data.decks.forEach(d => {
+        if (!state.decks.find(x => x.id === d.id)) {
+          state.decks.push(d);
+          imported++;
+        }
+      });
+      save(); renderHome();
+      toast(`✅ Imported ${imported} deck${imported !== 1 ? 's' : ''}!`);
+    } catch { toast('❗ Invalid file format', 'warn'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetDeckProgress() {
+  if (!confirm('Reset all spaced repetition data for this deck? Card content is kept.')) return;
+  getDeck().cards.forEach(c => {
+    c.interval = 0; c.easeFactor = 2.5;
+    c.dueDate = null; c.lastReview = null;
+    c.reviews = 0; c.lapses = 0;
+  });
+  save(); renderDeckDetail();
+  toast('↺ SR data reset');
+}
+
+// MODALS 
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  const firstInput = document.querySelector('#' + id + ' input, #' + id + ' textarea');
+  if (firstInput) setTimeout(() => firstInput.focus(), 100);
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); });
+});
+
+// keyboard shortcut: space to flip, 1-4 to rate
+document.addEventListener('keydown', e => {
+  const onQuiz = document.getElementById('page-quiz').classList.contains('active');
+  if (!onQuiz) return;
+  if (e.code === 'Space' && !quizFlipped) { e.preventDefault(); flipCard(); }
+  if (quizFlipped) {
+    if (e.key === '1') rate(0);
+    if (e.key === '2') rate(1);
+    if (e.key === '3') rate(2);
+    if (e.key === '4') rate(3);
+  }
+});
+
+// HELPERS 
+function getDeck()  { return state.decks.find(d => d.id === activeDeckId); }
+function uid()      { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function toast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = msg;
+  const container = document.getElementById('toast-container');
+  container.appendChild(t);
+  setTimeout(() => { t.style.transition = 'opacity 0.4s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2800);
+}
+
+// SEED DATA (first run) 
+function seedIfEmpty() {
+  if (state.decks.length > 0) return;
+  const deck = {
+    id: uid(), name: 'JavaScript Fundamentals',
+    desc: 'Core JS concepts for revision',
+    createdAt: new Date().toISOString(),
+    cards: [
+      { id: uid(), question: 'What does "==" do vs "==="?', answer: '== checks value with type coercion; === checks value AND type (strict equality).', interval: 0, easeFactor: 2.5, dueDate: null, lastReview: null, reviews: 0, lapses: 0 },
+      { id: uid(), question: 'What is a closure in JavaScript?', answer: 'A function that retains access to its outer (lexical) scope even after that scope has finished executing.', interval: 0, easeFactor: 2.5, dueDate: null, lastReview: null, reviews: 0, lapses: 0 },
+      { id: uid(), question: 'What is the difference between let, var and const?', answer: 'var is function-scoped and hoisted. let is block-scoped and not hoisted. const is block-scoped and cannot be reassigned.', interval: 0, easeFactor: 2.5, dueDate: null, lastReview: null, reviews: 0, lapses: 0 },
+      { id: uid(), question: 'What is event bubbling?', answer: 'When an event fires on a child element, it propagates up through ancestor elements unless stopPropagation() is called.', interval: 0, easeFactor: 2.5, dueDate: null, lastReview: null, reviews: 0, lapses: 0 },
+      { id: uid(), question: 'What is a Promise?', answer: 'An object representing the eventual completion or failure of an asynchronous operation, with .then() and .catch() handlers.', interval: 0, easeFactor: 2.5, dueDate: null, lastReview: null, reviews: 0, lapses: 0 },
+    ]
+  };
+  state.decks.push(deck);
+  save();
+}
+
+// INIT 
+load();
+applyTheme();
+seedIfEmpty();
+navigate('home');
+</script>
+</body>
+</html>
